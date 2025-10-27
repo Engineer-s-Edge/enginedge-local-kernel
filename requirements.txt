@@ -1,0 +1,3 @@
+Flask
+wolframclient
+kafka-python
