@@ -1,15 +1,15 @@
-import os
 import json
-import uuid
-from datetime import datetime
-from flask import Flask, request, jsonify
-from wolframclient.evaluation import WolframLanguageSession
-from wolframclient.exception import WolframEvaluationException
-from kafka import KafkaProducer, KafkaConsumer
-from kafka.errors import KafkaError
+import logging
+import os
 import threading
 import time
-import logging
+import uuid
+from datetime import datetime
+
+from flask import Flask, jsonify, request
+from kafka import KafkaConsumer, KafkaProducer
+from wolframclient.evaluation import WolframLanguageSession
+from wolframclient.exception import WolframEvaluationException
 
 # --- Configure Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # --- Configuration ---
-KAFKA_BROKERS = os.environ.get('KAFKA_BROKERS', 'localhost:9092').split(',')
-COMPUTE_REQUESTS_TOPIC = 'wolfram-compute-requests'
-COMPUTE_RESPONSES_TOPIC = 'wolfram-compute-responses'
-CONSUMER_GROUP = 'wolfram-kernel-group'
+KAFKA_BROKERS = os.environ.get("KAFKA_BROKERS", "localhost:9092").split(",")
+COMPUTE_REQUESTS_TOPIC = "wolfram-compute-requests"
+COMPUTE_RESPONSES_TOPIC = "wolfram-compute-responses"
+CONSUMER_GROUP = "wolfram-kernel-group"
 
 # --- Kafka Components ---
 producer = None
@@ -35,21 +35,24 @@ session = None
 
 # --- Initialization Functions ---
 
+
 def initialize_wolfram_session():
     """Initialize the Wolfram Language session."""
     global session
     try:
         # Prefer env var path, then fall back to common versions
         candidate_paths = []
-        env_kernel_path = os.environ.get('WOLFRAM_KERNEL_PATH')
+        env_kernel_path = os.environ.get("WOLFRAM_KERNEL_PATH")
         if env_kernel_path:
             candidate_paths.append(env_kernel_path)
         # Add typical install locations for recent versions
-        candidate_paths.extend([
-            '/opt/Wolfram/WolframEngine/14.3/Executables/WolframKernel',
-            '/opt/Wolfram/WolframEngine/14.2/Executables/WolframKernel',
-            '/opt/Wolfram/WolframEngine/14.1/Executables/WolframKernel',
-        ])
+        candidate_paths.extend(
+            [
+                "/opt/Wolfram/WolframEngine/14.3/Executables/WolframKernel",
+                "/opt/Wolfram/WolframEngine/14.2/Executables/WolframKernel",
+                "/opt/Wolfram/WolframEngine/14.1/Executables/WolframKernel",
+            ]
+        )
 
         kernel_path = None
         for path in candidate_paths:
@@ -59,7 +62,9 @@ def initialize_wolfram_session():
 
         if kernel_path:
             session = WolframLanguageSession(kernel_path)
-            logger.info(f"Successfully started WolframLanguageSession using {kernel_path}.")
+            logger.info(
+                f"Successfully started WolframLanguageSession using {kernel_path}."
+            )
             return True
         else:
             logger.error("Error: WolframKernel executable not found. Checked paths:")
@@ -71,6 +76,7 @@ def initialize_wolfram_session():
         logger.error(f"Failed to start WolframLanguageSession: {e}")
         return False
 
+
 def initialize_kafka():
     """Initialize Kafka producer and consumer."""
     global producer, consumer
@@ -78,11 +84,11 @@ def initialize_kafka():
         # Initialize producer
         producer = KafkaProducer(
             bootstrap_servers=KAFKA_BROKERS,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-            key_serializer=lambda k: k.encode('utf-8') if k else None,
-            acks='all',
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+            key_serializer=lambda k: k.encode("utf-8") if k else None,
+            acks="all",
             retries=3,
-            max_in_flight_requests_per_connection=1
+            max_in_flight_requests_per_connection=1,
         )
 
         # Initialize consumer
@@ -90,10 +96,10 @@ def initialize_kafka():
             COMPUTE_REQUESTS_TOPIC,
             bootstrap_servers=KAFKA_BROKERS,
             group_id=CONSUMER_GROUP,
-            value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-            auto_offset_reset='latest',
+            value_deserializer=lambda x: json.loads(x.decode("utf-8")),
+            auto_offset_reset="latest",
             enable_auto_commit=True,
-            consumer_timeout_ms=1000
+            consumer_timeout_ms=1000,
         )
 
         logger.info("Successfully initialized Kafka producer and consumer.")
@@ -102,6 +108,7 @@ def initialize_kafka():
     except Exception as e:
         logger.error(f"Failed to initialize Kafka: {e}")
         return False
+
 
 def kafka_consumer_loop():
     """Background thread to process Kafka messages."""
@@ -128,12 +135,13 @@ def kafka_consumer_loop():
 
     logger.info("Kafka consumer loop stopped.")
 
+
 def process_kafka_message(message):
     """Process a computation request from Kafka."""
     try:
-        request_id = message.get('requestId')
-        code = message.get('code')
-        correlation_id = message.get('correlationId')
+        request_id = message.get("requestId")
+        code = message.get("code")
+        correlation_id = message.get("correlationId")
 
         if not request_id or not code:
             logger.error("Invalid message format: missing requestId or code")
@@ -146,10 +154,10 @@ def process_kafka_message(message):
 
         # Send response back via Kafka
         response = {
-            'requestId': request_id,
-            'correlationId': correlation_id,
-            'timestamp': datetime.utcnow().isoformat(),
-            'result': result
+            "requestId": request_id,
+            "correlationId": correlation_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "result": result,
         }
 
         if producer:
@@ -160,13 +168,11 @@ def process_kafka_message(message):
     except Exception as e:
         logger.error(f"Error processing Kafka message: {e}")
 
+
 def perform_computation(code):
     """Perform Wolfram computation and return result."""
     if not session:
-        return {
-            'success': False,
-            'error': 'WolframLanguageSession not available'
-        }
+        return {"success": False, "error": "WolframLanguageSession not available"}
 
     try:
         # Use session.evaluate to run the code
@@ -175,21 +181,13 @@ def perform_computation(code):
         # Convert result to string for JSON serialization
         result_str = str(result)
 
-        return {
-            'success': True,
-            'result': result_str
-        }
+        return {"success": True, "result": result_str}
 
     except WolframEvaluationException as e:
-        return {
-            'success': False,
-            'error': f"Wolfram evaluation error: {e}"
-        }
+        return {"success": False, "error": f"Wolfram evaluation error: {e}"}
     except Exception as e:
-        return {
-            'success': False,
-            'error': f"Unexpected error: {e}"
-        }
+        return {"success": False, "error": f"Unexpected error: {e}"}
+
 
 # --- Initialize Components ---
 wolfram_ready = initialize_wolfram_session()
@@ -203,25 +201,35 @@ if kafka_ready:
 else:
     logger.warning("Kafka not available - running in HTTP-only mode.")
 
-@app.route('/compute', methods=['POST'])
+
+@app.route("/compute", methods=["POST"])
 def compute():
     """
     Accepts a POST request with JSON payload: {"code": "Wolfram Language code"}
     Executes the code and returns the result.
     """
     data = request.get_json()
-    if not data or 'code' not in data:
-        return jsonify({"success": False, "error": "Invalid request. 'code' field is required."}), 400
+    if not data or "code" not in data:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Invalid request. 'code' field is required.",
+                }
+            ),
+            400,
+        )
 
-    code_to_evaluate = data['code']
+    code_to_evaluate = data["code"]
     result = perform_computation(code_to_evaluate)
 
-    if result['success']:
+    if result["success"]:
         return jsonify(result)
     else:
         return jsonify(result), 500
 
-@app.route('/compute/kafka', methods=['POST'])
+
+@app.route("/compute/kafka", methods=["POST"])
 def compute_via_kafka():
     """
     Accepts a computation request and sends it via Kafka for async processing.
@@ -231,39 +239,56 @@ def compute_via_kafka():
         return jsonify({"success": False, "error": "Kafka not available"}), 503
 
     data = request.get_json()
-    if not data or 'code' not in data:
-        return jsonify({"success": False, "error": "Invalid request. 'code' field is required."}), 400
+    if not data or "code" not in data:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Invalid request. 'code' field is required.",
+                }
+            ),
+            400,
+        )
 
     request_id = str(uuid.uuid4())
-    correlation_id = data.get('correlationId', request_id)
+    correlation_id = data.get("correlationId", request_id)
 
     message = {
-        'requestId': request_id,
-        'correlationId': correlation_id,
-        'code': data['code'],
-        'timestamp': datetime.utcnow().isoformat()
+        "requestId": request_id,
+        "correlationId": correlation_id,
+        "code": data["code"],
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     try:
         if not producer:
-            return jsonify({"success": False, "error": "Kafka producer not available"}), 503
+            return (
+                jsonify({"success": False, "error": "Kafka producer not available"}),
+                503,
+            )
 
         producer.send(COMPUTE_REQUESTS_TOPIC, value=message, key=request_id)
         producer.flush()
 
         logger.info(f"Sent computation request {request_id} via Kafka")
-        return jsonify({
-            "success": True,
-            "requestId": request_id,
-            "correlationId": correlation_id,
-            "message": "Computation request queued for processing"
-        })
+        return jsonify(
+            {
+                "success": True,
+                "requestId": request_id,
+                "correlationId": correlation_id,
+                "message": "Computation request queued for processing",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Failed to send Kafka message: {e}")
-        return jsonify({"success": False, "error": f"Failed to queue request: {e}"}), 500
+        return (
+            jsonify({"success": False, "error": f"Failed to queue request: {e}"}),
+            500,
+        )
 
-@app.route('/status', methods=['GET'])
+
+@app.route("/status", methods=["GET"])
 def status():
     """
     Get comprehensive status of the service including Wolfram and Kafka status.
@@ -271,20 +296,17 @@ def status():
     status_info = {
         "service": "wolfram-local-kernel",
         "version": "2.0.0",
-        "wolfram": {
-            "ready": wolfram_ready,
-            "session_available": session is not None
-        },
+        "wolfram": {"ready": wolfram_ready, "session_available": session is not None},
         "kafka": {
             "ready": kafka_ready,
             "producer_available": producer is not None,
             "consumer_available": consumer is not None,
             "topics": {
                 "requests": COMPUTE_REQUESTS_TOPIC,
-                "responses": COMPUTE_RESPONSES_TOPIC
-            }
+                "responses": COMPUTE_RESPONSES_TOPIC,
+            },
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     # Determine overall health
@@ -300,7 +322,8 @@ def status():
 
     return jsonify(status_info), status_code
 
-@app.route('/health', methods=['GET'])
+
+@app.route("/health", methods=["GET"])
 def health_check():
     """
     A simple health check endpoint.
@@ -311,14 +334,48 @@ def health_check():
         # Perform a fast, safe evaluation to verify the kernel is responsive
         try:
             res = session.evaluate("1+1", timeout=3)
-            return jsonify({"status": "ok", "wolfram_session": "running", "eval":"1+1", "result": str(res)}), 200
+            return (
+                jsonify(
+                    {
+                        "status": "ok",
+                        "wolfram_session": "running",
+                        "eval": "1+1",
+                        "result": str(res),
+                    }
+                ),
+                200,
+            )
         except WolframEvaluationException as we:
-            return jsonify({"status": "error", "wolfram_session": "evaluation failed", "details": str(we)}), 503
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "wolfram_session": "evaluation failed",
+                        "details": str(we),
+                    }
+                ),
+                503,
+            )
         except Exception as e:
-            return jsonify({"status": "error", "wolfram_session": "unreachable", "details": str(e)}), 503
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "wolfram_session": "unreachable",
+                        "details": str(e),
+                    }
+                ),
+                503,
+            )
     except Exception as outer:
         # Defensive: never throw from health
-        return jsonify({"status": "error", "wolfram_session": "unknown", "details": str(outer)}), 503
+        return (
+            jsonify(
+                {"status": "error", "wolfram_session": "unknown", "details": str(outer)}
+            ),
+            503,
+        )
+
 
 def shutdown_handler():
     """Cleanup function called on shutdown."""
@@ -331,26 +388,27 @@ def shutdown_handler():
     if producer:
         try:
             producer.close()
-        except:
+        except Exception:
             pass
 
     if consumer:
         try:
             consumer.close()
-        except:
+        except Exception:
             pass
 
     if session:
         try:
             session.terminate()
-        except:
+        except Exception:
             pass
 
     logger.info("Shutdown complete.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     try:
         # Run the Flask app, making it accessible from other Docker containers
-        app.run(host='0.0.0.0', port=5000)
+        app.run(host="0.0.0.0", port=5000)
     finally:
         shutdown_handler()
