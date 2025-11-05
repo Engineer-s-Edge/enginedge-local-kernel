@@ -12,7 +12,66 @@ from wolframclient.evaluation import WolframLanguageSession
 from wolframclient.exception import WolframEvaluationException
 
 # --- Configure Logging ---
-logging.basicConfig(level=logging.INFO)
+SERVICE_NAME = os.environ.get("SERVICE_NAME", "enginedge-local-kernel")
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+
+class KafkaLogHandler(logging.Handler):
+    def __init__(self, service_name: str, level=logging.INFO):
+        super().__init__(level)
+        self.service_name = service_name
+        self.buffer_path = os.path.join(
+            os.getcwd(), os.environ.get("LOG_BUFFER_DIR", "logs")
+        )
+        os.makedirs(self.buffer_path, exist_ok=True)
+        self.buffer_file = os.path.join(
+            self.buffer_path, f"{self.service_name}-buffer.log"
+        )
+        self._producer = None
+
+    def ensure_producer(self):
+        global producer
+        if producer:
+            self._producer = producer
+        return self._producer is not None
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+            entry = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "level": record.levelname.lower(),
+                "message": msg,
+                "service": self.service_name,
+            }
+            topic = f"enginedge.logs.worker.{self.service_name}"
+            if self.ensure_producer():
+                try:
+                    self._producer.send(topic, value=entry, key=str(uuid.uuid4()))
+                except Exception:
+                    self._buffer(entry)
+            else:
+                self._buffer(entry)
+        except Exception:
+            # Never throw from logging
+            pass
+
+    def _buffer(self, entry: dict):
+        try:
+            with open(self.buffer_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception:
+            pass
+
+
+root_logger = logging.getLogger()
+root_logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+root_console = logging.StreamHandler()
+root_console.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+root_logger.addHandler(root_console)
+root_logger.addHandler(
+    KafkaLogHandler(SERVICE_NAME, level=getattr(logging, LOG_LEVEL, logging.INFO))
+)
 logger = logging.getLogger(__name__)
 
 # --- Flask App Initialization ---
