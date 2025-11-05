@@ -30,7 +30,6 @@ class KafkaLogHandler(logging.Handler):
         self._producer = None
 
     def ensure_producer(self):
-        global producer
         if producer:
             self._producer = producer
         return self._producer is not None
