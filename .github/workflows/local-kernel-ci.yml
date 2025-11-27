@@ -52,7 +52,7 @@ jobs:
           echo "$KUBECONFIG_B64" | base64 -d > kubeconfig
           export KUBECONFIG=$PWD/kubeconfig
           IMAGE=ghcr.io/${{ github.repository_owner }}/enginedge-local-kernel:${{ github.sha }}
-          helm upgrade --install wolfram-kernel ../enginedge-core/platform/k8s/charts/worker-generic \
+          helm upgrade --install wolfram-kernel ../enginedge-core/platform/k8s/dev/charts/worker-generic \
             --namespace default \
             --set image.repository=${IMAGE%:*} \
             --set image.tag=${IMAGE##*:} \
