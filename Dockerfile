@@ -24,7 +24,9 @@ COPY app.py .
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Use --break-system-packages to allow installing packages system-wide in this container
+# This is necessary because newer Debian/Ubuntu versions enforce PEP 668
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Create a non-root user and set up home directory (if not already present)
 # The base image might already have a user, but let's ensure we have our appuser
