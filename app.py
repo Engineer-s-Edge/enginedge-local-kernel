@@ -106,6 +106,7 @@ def initialize_wolfram_session():
         # Add typical install locations for recent versions
         candidate_paths.extend(
             [
+                "/usr/local/bin/WolframKernel",  # Standard location in official Docker image
                 "/opt/Wolfram/WolframEngine/14.3/Executables/WolframKernel",
                 "/opt/Wolfram/WolframEngine/14.2/Executables/WolframKernel",
                 "/opt/Wolfram/WolframEngine/14.1/Executables/WolframKernel",
