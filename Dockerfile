@@ -1,5 +1,5 @@
 # Use the official Wolfram Engine image
-FROM wolframresearch/wolframengine:latest
+FROM docker.io/wolframresearch/wolframengine:latest
 
 # Switch to root to install dependencies
 USER root
