@@ -77,7 +77,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # --- Configuration ---
-KAFKA_BROKERS = os.environ.get("KAFKA_BROKERS", "localhost:9092").split(",")
+KAFKA_BROKERS = os.environ.get("KAFKA_BROKERS", "kafka:9092").split(",")
 COMPUTE_REQUESTS_TOPIC = "wolfram-compute-requests"
 COMPUTE_RESPONSES_TOPIC = "wolfram-compute-responses"
 CONSUMER_GROUP = "wolfram-kernel-group"
@@ -468,6 +468,7 @@ def shutdown_handler():
 if __name__ == "__main__":
     try:
         # Run the Flask app, making it accessible from other Docker containers
-        app.run(host="0.0.0.0", port=5000)
+        port = int(os.environ.get("PORT", 5000))
+        app.run(host="0.0.0.0", port=port)
     finally:
         shutdown_handler()

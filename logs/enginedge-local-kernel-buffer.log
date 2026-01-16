@@ -1,7 +1,0 @@
-{"timestamp": "2026-01-15T21:07:09.535493", "level": "error", "message": "Error: WolframKernel executable not found. Checked paths:", "service": "enginedge-local-kernel"}
-{"timestamp": "2026-01-15T21:07:09.535910", "level": "error", "message": " - /usr/local/bin/WolframKernel", "service": "enginedge-local-kernel"}
-{"timestamp": "2026-01-15T21:07:09.536053", "level": "error", "message": " - /opt/Wolfram/WolframEngine/14.3/Executables/WolframKernel", "service": "enginedge-local-kernel"}
-{"timestamp": "2026-01-15T21:07:09.536171", "level": "error", "message": " - /opt/Wolfram/WolframEngine/14.2/Executables/WolframKernel", "service": "enginedge-local-kernel"}
-{"timestamp": "2026-01-15T21:07:09.536349", "level": "error", "message": " - /opt/Wolfram/WolframEngine/14.1/Executables/WolframKernel", "service": "enginedge-local-kernel"}
-{"timestamp": "2026-01-15T21:08:37.472682", "level": "info", "message": "Successfully started WolframLanguageSession using /usr/local/bin/WolframKernel.", "service": "enginedge-local-kernel"}
-{"timestamp": "2026-01-15T21:09:27.109759", "level": "info", "message": "Successfully started WolframLanguageSession using /usr/local/bin/WolframKernel.", "service": "enginedge-local-kernel"}
