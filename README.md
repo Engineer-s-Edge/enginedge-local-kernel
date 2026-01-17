@@ -10,6 +10,12 @@ This directory contains a containerized Wolfram Engine, exposed via a simple Pyt
 - **Enhanced Error Handling**: Robust error handling and logging
 - **Dual Communication**: Support for both HTTP and Kafka-based communication
 
+## Service Details
+
+- **Port**: 5001 (mapped from container port 5000 in `docker-compose.yml`)
+- **Technology**: Python (Flask) + Wolfram Engine
+- **Dependencies**: `wolframclient`, `kafka-python`, `flask`
+
 ## How It Works
 
 - A `Dockerfile` defines a container image based on Ubuntu 22.04.

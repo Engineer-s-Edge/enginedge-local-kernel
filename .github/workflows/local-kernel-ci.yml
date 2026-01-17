@@ -1,0 +1,39 @@
+name: local-kernel-ci
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  python-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+          pip install black isort flake8 || true
+      - name: Format check
+        run: |
+          black --check . || (echo "Black formatting check failed. Run 'black .' to fix." && exit 1)
+          isort --check-only --profile black . || (echo "isort check failed. Run 'isort . --profile black' to fix." && exit 1)
+      - name: Lint check
+        run: |
+          flake8 . --max-line-length=100 --extend-ignore=E203,W503 || (echo "Flake8 check failed. Fix linting errors." && exit 1)
+      - name: Docker login
+        if: github.ref == 'refs/heads/main'
+        run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+        env:
+          CR_PAT: ${{ secrets.REGISTRY_TOKEN }}
+      - name: Docker build & push
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/enginedge-local-kernel:${{ github.sha }}
+          docker build -t $IMAGE .
+          docker push $IMAGE

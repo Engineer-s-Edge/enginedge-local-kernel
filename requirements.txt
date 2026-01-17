@@ -1,3 +1,5 @@
 Flask
 wolframclient
 kafka-python
+pytest
+pytest-mock
